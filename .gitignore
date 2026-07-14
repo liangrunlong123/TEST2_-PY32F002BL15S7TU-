@@ -1,0 +1,11 @@
+# Keil/MDK generated outputs
+Objects/
+Listings/
+
+# User-local IDE state
+*.uvguix.*
+
+# Generic temporary files
+*.bak
+*.tmp
+*.log
