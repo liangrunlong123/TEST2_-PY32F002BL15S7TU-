@@ -4,6 +4,7 @@ Listings/
 
 # User-local IDE state
 *.uvguix.*
+.vscode/*.log.lock
 
 # Generic temporary files
 *.bak
