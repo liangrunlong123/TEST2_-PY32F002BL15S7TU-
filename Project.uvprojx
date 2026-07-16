@@ -559,6 +559,16 @@
               <FileType>5</FileType>
               <FilePath>.\My_Library\App_Control.h</FilePath>
             </File>
+            <File>
+              <FileName>ADC_Feedback.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\My_Library\ADC_Feedback.c</FilePath>
+            </File>
+            <File>
+              <FileName>ADC_Feedback.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\My_Library\ADC_Feedback.h</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

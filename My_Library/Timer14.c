@@ -1,7 +1,7 @@
 #include "Timer14.h"
 #include "App_Control.h"
 
-#define TIM14_TIMEBASE_MS  10U
+#define TIM14_TIMEBASE_MS  5U
 
 static TIM_HandleTypeDef htim14;
 

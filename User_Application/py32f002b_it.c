@@ -30,7 +30,6 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "App_Control.h"
 #include "py32f002b_it.h"
 #include "Timer1.h"
 #include "Timer14.h"
@@ -102,27 +101,11 @@ void TIM1_CC_IRQHandler(void)
 }
 
 /**
-  * @brief This function handles EXTI line[4:15] interrupts.
-  */
-void EXTI4_15_IRQHandler(void)
-{
-  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_7);
-}
-
-/**
   * @brief This function handles TIM14 global interrupt.
   */
 void TIM14_IRQHandler(void)
 {
   TIM14_Service_IRQHandler();
-}
-
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-  if (GPIO_Pin == GPIO_PIN_7)
-  {
-    APP_Control_OnFaultSignalEdge(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_7));
-  }
 }
 
 /************************ (C) COPYRIGHT Puya *****END OF FILE******************/

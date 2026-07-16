@@ -19,12 +19,11 @@ void IO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /* PA7 is the transformer feedback fault-detect input. */
+  /* PA7 is the transformer feedback ADC input. */
   GPIO_InitStruct.Pin = GPIO_PIN_7;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-  HAL_SYSCFG_EnableGPIONoiseFilter(GPIOA, GPIO_PIN_7);
 
   /* PB0 outputs TIM1_CH2 PWM, same mapping as the official TIM1_PWM example. */
   GPIO_InitStruct.Pin = GPIO_PIN_0;
