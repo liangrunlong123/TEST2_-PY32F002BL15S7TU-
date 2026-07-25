@@ -5,9 +5,10 @@
 #define ADC_FEEDBACK_FIRST_DECISION_MS    50U
 #define ADC_FEEDBACK_FILTER_SIZE          9U
 #define ADC_REFERENCE_MV                  5000U
-#define ADC_FAULT_THRESHOLD_MV            560U
+#define ADC_FAULT_THRESHOLD_MV            565U
 #define ADC_MAX_RAW_VALUE                 4095U
 #define ADC_CONVERSION_TIMEOUT_MS         2U
+#define ADC_STATE_CONFIRMATION_COUNT       2U
 
 #define ADC_FAULT_THRESHOLD_RAW \
   (((ADC_FAULT_THRESHOLD_MV * ADC_MAX_RAW_VALUE) + (ADC_REFERENCE_MV / 2U)) / ADC_REFERENCE_MV)
@@ -19,10 +20,13 @@ static uint8_t adc_sample_count;
 static uint32_t next_sample_tick_ms;
 static uint16_t median_raw;
 static ADC_FeedbackStateTypeDef feedback_state;
+static ADC_FeedbackStateTypeDef candidate_state;
+static uint8_t candidate_state_count;
 
 static uint16_t ADC_Feedback_ReadRaw(void);
 static uint16_t ADC_Feedback_CalculateMedian(void);
 static void ADC_Feedback_PushSample(uint16_t sample);
+static void ADC_Feedback_ConfirmState(ADC_FeedbackStateTypeDef observed_state);
 
 void ADC_Feedback_Init(void)
 {
@@ -71,6 +75,8 @@ void ADC_Feedback_Init(void)
   next_sample_tick_ms = ADC_FEEDBACK_FIRST_SAMPLE_MS;
   median_raw = 0U;
   feedback_state = ADC_FEEDBACK_STATE_UNKNOWN;
+  candidate_state = ADC_FEEDBACK_STATE_UNKNOWN;
+  candidate_state_count = 0U;
 }
 
 ADC_FeedbackStateTypeDef ADC_Feedback_Task(uint32_t now_ms)
@@ -97,11 +103,11 @@ ADC_FeedbackStateTypeDef ADC_Feedback_Task(uint32_t now_ms)
 
   if (median_raw > ADC_FAULT_THRESHOLD_RAW)
   {
-    feedback_state = ADC_FEEDBACK_STATE_NORMAL;
+    ADC_Feedback_ConfirmState(ADC_FEEDBACK_STATE_NORMAL);
   }
   else
   {
-    feedback_state = ADC_FEEDBACK_STATE_FAULT;
+    ADC_Feedback_ConfirmState(ADC_FEEDBACK_STATE_FAULT);
   }
 
   return feedback_state;
@@ -178,4 +184,31 @@ static uint16_t ADC_Feedback_CalculateMedian(void)
   }
 
   return sorted[ADC_FEEDBACK_FILTER_SIZE / 2U];
+}
+
+static void ADC_Feedback_ConfirmState(ADC_FeedbackStateTypeDef observed_state)
+{
+  if (observed_state == feedback_state)
+  {
+    candidate_state = ADC_FEEDBACK_STATE_UNKNOWN;
+    candidate_state_count = 0U;
+    return;
+  }
+
+  if (observed_state != candidate_state)
+  {
+    candidate_state = observed_state;
+    candidate_state_count = 1U;
+  }
+  else if (candidate_state_count < ADC_STATE_CONFIRMATION_COUNT)
+  {
+    candidate_state_count++;
+  }
+
+  if (candidate_state_count >= ADC_STATE_CONFIRMATION_COUNT)
+  {
+    feedback_state = candidate_state;
+    candidate_state = ADC_FEEDBACK_STATE_UNKNOWN;
+    candidate_state_count = 0U;
+  }
 }

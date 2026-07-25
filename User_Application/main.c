@@ -3,11 +3,13 @@
 #include "IO_Init.h"
 
 static void APP_SystemClockConfig(void);
+static void APP_ConfigureOptionBytes(void);
 
 int main(void)
 {
   HAL_Init();
   APP_SystemClockConfig();
+  APP_ConfigureOptionBytes();
 
   IO_Init();
   APP_Control_Init();
@@ -16,6 +18,53 @@ int main(void)
   {
     APP_Control_Task();
   }
+}
+
+static void APP_ConfigureOptionBytes(void)
+{
+  FLASH_OBProgramInitTypeDef option_bytes = {0};
+
+  HAL_FLASH_OBGetConfig(&option_bytes);
+  if ((option_bytes.USERConfig & OB_USER_SWD_NRST_MODE) == OB_SWD_PB6_GPIO_PC0)
+  {
+    return;
+  }
+
+  option_bytes.OptionType = OPTIONBYTE_USER;
+  option_bytes.USERType = OB_USER_SWD_NRST_MODE;
+  option_bytes.USERConfig = OB_SWD_PB6_GPIO_PC0;
+
+  if (HAL_FLASH_Unlock() != HAL_OK)
+  {
+    APP_ErrorHandler();
+  }
+
+  if (HAL_FLASH_OB_Unlock() != HAL_OK)
+  {
+    HAL_FLASH_Lock();
+    APP_ErrorHandler();
+  }
+
+  if (HAL_FLASH_OBProgram(&option_bytes) != HAL_OK)
+  {
+    HAL_FLASH_OB_Lock();
+    HAL_FLASH_Lock();
+    APP_ErrorHandler();
+  }
+
+  if (HAL_FLASH_OB_Lock() != HAL_OK)
+  {
+    HAL_FLASH_Lock();
+    APP_ErrorHandler();
+  }
+
+  if (HAL_FLASH_Lock() != HAL_OK)
+  {
+    APP_ErrorHandler();
+  }
+
+  HAL_FLASH_OB_Launch();
+  APP_ErrorHandler();
 }
 
 static void APP_SystemClockConfig(void)

@@ -31,7 +31,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "py32f002b_it.h"
-#include "Timer1.h"
 #include "Timer14.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -91,14 +90,6 @@ void SysTick_Handler(void)
 /* For the available peripheral interrupt handler names,                      */
 /* please refer to the startup file.                                          */
 /******************************************************************************/
-
-/**
-  * @brief This function handles TIM1 capture compare interrupt.
-  */
-void TIM1_CC_IRQHandler(void)
-{
-  TIM1_Service_IRQHandler();
-}
 
 /**
   * @brief This function handles TIM14 global interrupt.

@@ -3,16 +3,12 @@
 #include "Timer1.h"
 #include "Timer14.h"
 
-#define PWM_STAGE1_START_FREQ_HZ    2500U
-#define PWM_STAGE1_STEP_FREQ_HZ      500U
-#define PWM_STAGE1_STEP_INTERVAL_MS   50U
-#define PWM_STAGE1_DURATION_MS       350U
-#define PWM_STAGE2_START_FREQ_HZ   70000U
-#define PWM_STAGE2_RUN_FREQ_HZ     40000U
-#define PWM_STAGE2_STEP_FREQ_HZ     1000U
-#define PWM_STAGE2_STEP_INTERVAL_MS  100U
-#define PWM_STAGE2_DURATION_MS      3000U
-#define PWM_FAULT_FREQ_HZ            5700U
+#define PWM_SOFT_START_FREQ_HZ       75000U
+#define PWM_NORMAL_RUN_FREQ_HZ       40000U
+#define PWM_SOFT_START_STEP_FREQ_HZ   1000U
+#define PWM_SOFT_START_INTERVAL_MS     100U
+#define PWM_SOFT_START_DURATION_MS    3500U
+#define PWM_FAULT_FREQ_HZ              5700U
 
 typedef enum
 {
@@ -38,7 +34,7 @@ void APP_Control_Init(void)
   TIM14_Timebase_Start();
 
   ADC_Feedback_Init();
-  TIM1_PWM_Init(PWM_STAGE1_START_FREQ_HZ);
+  TIM1_PWM_Init(PWM_SOFT_START_FREQ_HZ);
   APP_Control_EnterNormal();
 }
 
@@ -69,7 +65,7 @@ static void APP_Control_EnterNormal(void)
 {
   app_state = APP_STATE_NORMAL;
   normal_start_tick_ms = APP_Control_GetTickMs();
-  TIM1_PWM_SetFrequency(PWM_STAGE1_START_FREQ_HZ);
+  TIM1_PWM_SetFrequency(PWM_SOFT_START_FREQ_HZ);
 }
 
 static void APP_Control_EnterFault(void)
@@ -83,23 +79,15 @@ static void APP_Control_UpdateNormalOutput(uint32_t now_ms)
   uint32_t elapsed_ms = now_ms - normal_start_tick_ms;
   uint32_t target_frequency_hz;
 
-  if (elapsed_ms < PWM_STAGE1_DURATION_MS)
+  if (elapsed_ms < PWM_SOFT_START_DURATION_MS)
   {
-    target_frequency_hz = PWM_STAGE1_START_FREQ_HZ +
-                          ((elapsed_ms / PWM_STAGE1_STEP_INTERVAL_MS) *
-                           PWM_STAGE1_STEP_FREQ_HZ);
-  }
-  else if (elapsed_ms < (PWM_STAGE1_DURATION_MS + PWM_STAGE2_DURATION_MS))
-  {
-    uint32_t stage2_elapsed_ms = elapsed_ms - PWM_STAGE1_DURATION_MS;
-
-    target_frequency_hz = PWM_STAGE2_START_FREQ_HZ -
-                          ((stage2_elapsed_ms / PWM_STAGE2_STEP_INTERVAL_MS) *
-                           PWM_STAGE2_STEP_FREQ_HZ);
+    target_frequency_hz = PWM_SOFT_START_FREQ_HZ -
+                          ((elapsed_ms / PWM_SOFT_START_INTERVAL_MS) *
+                           PWM_SOFT_START_STEP_FREQ_HZ);
   }
   else
   {
-    target_frequency_hz = PWM_STAGE2_RUN_FREQ_HZ;
+    target_frequency_hz = PWM_NORMAL_RUN_FREQ_HZ;
   }
 
   TIM1_PWM_SetFrequency(target_frequency_hz);

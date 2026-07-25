@@ -53,6 +53,7 @@ void TIM1_PWM_SetFrequency(uint32_t frequency_hz)
 {
   uint32_t period;
   uint32_t pulse;
+  uint32_t update_disable_state;
 
   if (frequency_hz == current_frequency_hz)
   {
@@ -63,15 +64,18 @@ void TIM1_PWM_SetFrequency(uint32_t frequency_hz)
   pulse = ((period + 1U) * PWM_DUTY_NUMERATOR) / PWM_DUTY_DENOMINATOR;
 
   __disable_irq();
+  update_disable_state = READ_BIT(htim1.Instance->CR1, TIM_CR1_UDIS);
+  SET_BIT(htim1.Instance->CR1, TIM_CR1_UDIS);
   __HAL_TIM_SET_AUTORELOAD(&htim1, period);
   __HAL_TIM_SET_COMPARE(&htim1, TIM1_PWM_CHANNEL, pulse);
+
+  if (update_disable_state == 0U)
+  {
+    CLEAR_BIT(htim1.Instance->CR1, TIM_CR1_UDIS);
+  }
+
   current_frequency_hz = frequency_hz;
   __enable_irq();
-}
-
-void TIM1_Service_IRQHandler(void)
-{
-  HAL_TIM_IRQHandler(&htim1);
 }
 
 static uint32_t TIM1_PWM_CalculatePeriod(uint32_t frequency_hz)
