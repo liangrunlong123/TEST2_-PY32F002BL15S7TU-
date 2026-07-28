@@ -7,7 +7,10 @@
 #define PWM_NORMAL_RUN_FREQ_HZ       40000U
 #define PWM_SOFT_START_STEP_FREQ_HZ   1000U
 #define PWM_SOFT_START_INTERVAL_MS     100U
-#define PWM_SOFT_START_DURATION_MS    3500U
+#define PWM_SPECIAL_START_MS          2100U
+#define PWM_SPECIAL_END_MS            2400U
+#define PWM_SPECIAL_DELAY_MS           300U
+#define PWM_SOFT_START_DURATION_MS    3800U
 #define PWM_FAULT_FREQ_HZ              5700U
 
 typedef enum
@@ -78,11 +81,47 @@ static void APP_Control_UpdateNormalOutput(uint32_t now_ms)
 {
   uint32_t elapsed_ms = now_ms - normal_start_tick_ms;
   uint32_t target_frequency_hz;
+  uint32_t delayed_elapsed_ms;
 
-  if (elapsed_ms < PWM_SOFT_START_DURATION_MS)
+  if (elapsed_ms < PWM_SPECIAL_START_MS)
   {
     target_frequency_hz = PWM_SOFT_START_FREQ_HZ -
                           ((elapsed_ms / PWM_SOFT_START_INTERVAL_MS) *
+                           PWM_SOFT_START_STEP_FREQ_HZ);
+  }
+  else if (elapsed_ms < 2140U)
+  {
+    target_frequency_hz = 2500U;
+  }
+  else if (elapsed_ms < 2180U)
+  {
+    target_frequency_hz = 1200U;
+  }
+  else if (elapsed_ms < 2220U)
+  {
+    target_frequency_hz = 600U;
+  }
+  else if (elapsed_ms < 2280U)
+  {
+    target_frequency_hz = 200U;
+  }
+  else if (elapsed_ms < 2320U)
+  {
+    target_frequency_hz = 600U;
+  }
+  else if (elapsed_ms < 2360U)
+  {
+    target_frequency_hz = 1200U;
+  }
+  else if (elapsed_ms < PWM_SPECIAL_END_MS)
+  {
+    target_frequency_hz = 2500U;
+  }
+  else if (elapsed_ms < PWM_SOFT_START_DURATION_MS)
+  {
+    delayed_elapsed_ms = elapsed_ms - PWM_SPECIAL_DELAY_MS;
+    target_frequency_hz = PWM_SOFT_START_FREQ_HZ -
+                          ((delayed_elapsed_ms / PWM_SOFT_START_INTERVAL_MS) *
                            PWM_SOFT_START_STEP_FREQ_HZ);
   }
   else
