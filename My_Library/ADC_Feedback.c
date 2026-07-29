@@ -6,12 +6,16 @@
 #define ADC_FEEDBACK_FILTER_SIZE          9U
 #define ADC_REFERENCE_MV                  5000U
 #define ADC_FAULT_THRESHOLD_MV            565U
+#define ADC_HIGH_VOLTAGE_THRESHOLD_MV     3550U
 #define ADC_MAX_RAW_VALUE                 4095U
 #define ADC_CONVERSION_TIMEOUT_MS         2U
 #define ADC_STATE_CONFIRMATION_COUNT       2U
+#define ADC_HIGH_VOLTAGE_CONFIRMATION_COUNT 3U
 
 #define ADC_FAULT_THRESHOLD_RAW \
   (((ADC_FAULT_THRESHOLD_MV * ADC_MAX_RAW_VALUE) + (ADC_REFERENCE_MV / 2U)) / ADC_REFERENCE_MV)
+#define ADC_HIGH_VOLTAGE_THRESHOLD_RAW \
+  (((ADC_HIGH_VOLTAGE_THRESHOLD_MV * ADC_MAX_RAW_VALUE) + ADC_REFERENCE_MV - 1U) / ADC_REFERENCE_MV)
 
 static ADC_HandleTypeDef hadc_feedback;
 static uint16_t adc_samples[ADC_FEEDBACK_FILTER_SIZE];
@@ -22,11 +26,14 @@ static uint16_t median_raw;
 static ADC_FeedbackStateTypeDef feedback_state;
 static ADC_FeedbackStateTypeDef candidate_state;
 static uint8_t candidate_state_count;
+static uint8_t high_voltage_sample_count;
+static uint8_t high_voltage_event_pending;
 
 static uint16_t ADC_Feedback_ReadRaw(void);
 static uint16_t ADC_Feedback_CalculateMedian(void);
 static void ADC_Feedback_PushSample(uint16_t sample);
 static void ADC_Feedback_ConfirmState(ADC_FeedbackStateTypeDef observed_state);
+static void ADC_Feedback_UpdateHighVoltageCount(uint16_t sample);
 
 void ADC_Feedback_Init(void)
 {
@@ -77,6 +84,8 @@ void ADC_Feedback_Init(void)
   feedback_state = ADC_FEEDBACK_STATE_UNKNOWN;
   candidate_state = ADC_FEEDBACK_STATE_UNKNOWN;
   candidate_state_count = 0U;
+  high_voltage_sample_count = 0U;
+  high_voltage_event_pending = 0U;
 }
 
 ADC_FeedbackStateTypeDef ADC_Feedback_Task(uint32_t now_ms)
@@ -91,6 +100,7 @@ ADC_FeedbackStateTypeDef ADC_Feedback_Task(uint32_t now_ms)
   next_sample_tick_ms = now_ms + ADC_FEEDBACK_SAMPLE_INTERVAL_MS;
   sample = ADC_Feedback_ReadRaw();
   ADC_Feedback_PushSample(sample);
+  ADC_Feedback_UpdateHighVoltageCount(sample);
 
   if ((now_ms < ADC_FEEDBACK_FIRST_DECISION_MS) ||
       (adc_sample_count < ADC_FEEDBACK_FILTER_SIZE))
@@ -116,6 +126,14 @@ ADC_FeedbackStateTypeDef ADC_Feedback_Task(uint32_t now_ms)
 uint16_t ADC_Feedback_GetMedianRaw(void)
 {
   return median_raw;
+}
+
+uint8_t ADC_Feedback_TakeHighVoltageEvent(void)
+{
+  uint8_t event_pending = high_voltage_event_pending;
+
+  high_voltage_event_pending = 0U;
+  return event_pending;
 }
 
 static uint16_t ADC_Feedback_ReadRaw(void)
@@ -210,5 +228,24 @@ static void ADC_Feedback_ConfirmState(ADC_FeedbackStateTypeDef observed_state)
     feedback_state = candidate_state;
     candidate_state = ADC_FEEDBACK_STATE_UNKNOWN;
     candidate_state_count = 0U;
+  }
+}
+
+static void ADC_Feedback_UpdateHighVoltageCount(uint16_t sample)
+{
+  if (sample >= ADC_HIGH_VOLTAGE_THRESHOLD_RAW)
+  {
+    if (high_voltage_sample_count < ADC_HIGH_VOLTAGE_CONFIRMATION_COUNT)
+    {
+      high_voltage_sample_count++;
+      if (high_voltage_sample_count >= ADC_HIGH_VOLTAGE_CONFIRMATION_COUNT)
+      {
+        high_voltage_event_pending = 1U;
+      }
+    }
+  }
+  else
+  {
+    high_voltage_sample_count = 0U;
   }
 }
