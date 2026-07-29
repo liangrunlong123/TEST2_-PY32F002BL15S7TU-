@@ -7,10 +7,10 @@
 #define PWM_NORMAL_RUN_FREQ_HZ       40000U
 #define PWM_SOFT_START_STEP_FREQ_HZ   1000U
 #define PWM_SOFT_START_INTERVAL_MS     100U
-#define PWM_LOW_FREQ_REQUEST_START_MS 2050U
-#define PWM_LOW_FREQ_REQUEST_END_MS   2450U
-#define PWM_LOW_FREQ_DURATION_MS       280U
-#define PWM_SOFT_START_DURATION_MS    3500U
+#define PWM_SPECIAL_START_MS          2100U
+#define PWM_SPECIAL_END_MS            2400U
+#define PWM_SPECIAL_DELAY_MS           300U
+#define PWM_SOFT_START_DURATION_MS    3800U
 #define PWM_FAULT_FREQ_HZ              5700U
 
 typedef enum
@@ -19,25 +19,15 @@ typedef enum
   APP_STATE_FAULT
 } APP_StateTypeDef;
 
-typedef enum
-{
-  PWM_START_PHASE_HIGH_FREQUENCY = 0,
-  PWM_START_PHASE_LOW_FREQUENCY,
-  PWM_START_PHASE_HIGH_FREQUENCY_RESUMED
-} PWM_StartPhaseTypeDef;
-
 static volatile uint32_t app_tick_ms;
 
 static APP_StateTypeDef app_state;
-static PWM_StartPhaseTypeDef pwm_start_phase;
 static uint32_t normal_start_tick_ms;
-static uint32_t low_frequency_start_tick_ms;
 
 static void APP_Control_EnterNormal(void);
 static void APP_Control_EnterFault(void);
-static void APP_Control_UpdateNormalOutput(uint32_t now_ms, uint8_t high_voltage_event);
+static void APP_Control_UpdateNormalOutput(uint32_t now_ms);
 static void APP_Control_ApplyFeedbackState(ADC_FeedbackStateTypeDef feedback_state);
-static uint32_t APP_Control_CalculateHighFrequency(uint32_t elapsed_ms);
 
 void APP_Control_Init(void)
 {
@@ -55,13 +45,12 @@ void APP_Control_Task(void)
 {
   uint32_t now_ms = APP_Control_GetTickMs();
   ADC_FeedbackStateTypeDef feedback_state = ADC_Feedback_Task(now_ms);
-  uint8_t high_voltage_event = ADC_Feedback_TakeHighVoltageEvent();
 
   APP_Control_ApplyFeedbackState(feedback_state);
 
   if (app_state == APP_STATE_NORMAL)
   {
-    APP_Control_UpdateNormalOutput(now_ms, high_voltage_event);
+    APP_Control_UpdateNormalOutput(now_ms);
   }
 }
 
@@ -78,9 +67,7 @@ uint32_t APP_Control_GetTickMs(void)
 static void APP_Control_EnterNormal(void)
 {
   app_state = APP_STATE_NORMAL;
-  pwm_start_phase = PWM_START_PHASE_HIGH_FREQUENCY;
   normal_start_tick_ms = APP_Control_GetTickMs();
-  low_frequency_start_tick_ms = 0U;
   TIM1_PWM_SetFrequency(PWM_SOFT_START_FREQ_HZ);
 }
 
@@ -90,84 +77,59 @@ static void APP_Control_EnterFault(void)
   TIM1_PWM_SetFrequency(PWM_FAULT_FREQ_HZ);
 }
 
-static void APP_Control_UpdateNormalOutput(uint32_t now_ms, uint8_t high_voltage_event)
+static void APP_Control_UpdateNormalOutput(uint32_t now_ms)
 {
   uint32_t elapsed_ms = now_ms - normal_start_tick_ms;
-  uint32_t high_frequency_elapsed_ms;
-  uint32_t low_frequency_elapsed_ms;
   uint32_t target_frequency_hz;
+  uint32_t delayed_elapsed_ms;
 
-  if ((pwm_start_phase == PWM_START_PHASE_HIGH_FREQUENCY) &&
-      (elapsed_ms >= PWM_LOW_FREQ_REQUEST_START_MS) &&
-      (elapsed_ms <= PWM_LOW_FREQ_REQUEST_END_MS) &&
-      (high_voltage_event != 0U))
+  if (elapsed_ms < PWM_SPECIAL_START_MS)
   {
-    pwm_start_phase = PWM_START_PHASE_LOW_FREQUENCY;
-    low_frequency_start_tick_ms = now_ms;
+    target_frequency_hz = PWM_SOFT_START_FREQ_HZ -
+                          ((elapsed_ms / PWM_SOFT_START_INTERVAL_MS) *
+                           PWM_SOFT_START_STEP_FREQ_HZ);
   }
-
-  if (pwm_start_phase == PWM_START_PHASE_LOW_FREQUENCY)
+  else if (elapsed_ms < 2140U)
   {
-    low_frequency_elapsed_ms = now_ms - low_frequency_start_tick_ms;
-
-    if (low_frequency_elapsed_ms < 40U)
-    {
-      target_frequency_hz = 2500U;
-    }
-    else if (low_frequency_elapsed_ms < 80U)
-    {
-      target_frequency_hz = 1200U;
-    }
-    else if (low_frequency_elapsed_ms < 120U)
-    {
-      target_frequency_hz = 600U;
-    }
-    else if (low_frequency_elapsed_ms < 160U)
-    {
-      target_frequency_hz = 200U;
-    }
-    else if (low_frequency_elapsed_ms < 200U)
-    {
-      target_frequency_hz = 600U;
-    }
-    else if (low_frequency_elapsed_ms < 240U)
-    {
-      target_frequency_hz = 1200U;
-    }
-    else if (low_frequency_elapsed_ms < PWM_LOW_FREQ_DURATION_MS)
-    {
-      target_frequency_hz = 2500U;
-    }
-    else
-    {
-      pwm_start_phase = PWM_START_PHASE_HIGH_FREQUENCY_RESUMED;
-      high_frequency_elapsed_ms = elapsed_ms - PWM_LOW_FREQ_DURATION_MS;
-      target_frequency_hz = APP_Control_CalculateHighFrequency(high_frequency_elapsed_ms);
-    }
+    target_frequency_hz = 2500U;
+  }
+  else if (elapsed_ms < 2180U)
+  {
+    target_frequency_hz = 1200U;
+  }
+  else if (elapsed_ms < 2220U)
+  {
+    target_frequency_hz = 600U;
+  }
+  else if (elapsed_ms < 2280U)
+  {
+    target_frequency_hz = 200U;
+  }
+  else if (elapsed_ms < 2320U)
+  {
+    target_frequency_hz = 600U;
+  }
+  else if (elapsed_ms < 2360U)
+  {
+    target_frequency_hz = 1200U;
+  }
+  else if (elapsed_ms < PWM_SPECIAL_END_MS)
+  {
+    target_frequency_hz = 2500U;
+  }
+  else if (elapsed_ms < PWM_SOFT_START_DURATION_MS)
+  {
+    delayed_elapsed_ms = elapsed_ms - PWM_SPECIAL_DELAY_MS;
+    target_frequency_hz = PWM_SOFT_START_FREQ_HZ -
+                          ((delayed_elapsed_ms / PWM_SOFT_START_INTERVAL_MS) *
+                           PWM_SOFT_START_STEP_FREQ_HZ);
   }
   else
   {
-    high_frequency_elapsed_ms = elapsed_ms;
-    if (pwm_start_phase == PWM_START_PHASE_HIGH_FREQUENCY_RESUMED)
-    {
-      high_frequency_elapsed_ms -= PWM_LOW_FREQ_DURATION_MS;
-    }
-
-    target_frequency_hz = APP_Control_CalculateHighFrequency(high_frequency_elapsed_ms);
+    target_frequency_hz = PWM_NORMAL_RUN_FREQ_HZ;
   }
 
   TIM1_PWM_SetFrequency(target_frequency_hz);
-}
-
-static uint32_t APP_Control_CalculateHighFrequency(uint32_t elapsed_ms)
-{
-  if (elapsed_ms < PWM_SOFT_START_DURATION_MS)
-  {
-    return PWM_SOFT_START_FREQ_HZ -
-           ((elapsed_ms / PWM_SOFT_START_INTERVAL_MS) * PWM_SOFT_START_STEP_FREQ_HZ);
-  }
-
-  return PWM_NORMAL_RUN_FREQ_HZ;
 }
 
 static void APP_Control_ApplyFeedbackState(ADC_FeedbackStateTypeDef feedback_state)
