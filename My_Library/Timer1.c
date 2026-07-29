@@ -61,6 +61,7 @@ void TIM1_PWM_SetFrequency(uint32_t frequency_hz)
   uint32_t period;
   uint32_t pulse;
   uint32_t update_disable_state;
+  uint32_t primask;
 
   if (frequency_hz == current_frequency_hz)
   {
@@ -70,6 +71,7 @@ void TIM1_PWM_SetFrequency(uint32_t frequency_hz)
   TIM1_PWM_CalculateTiming(frequency_hz, &prescaler, &period);
   pulse = ((period + 1U) * PWM_DUTY_NUMERATOR) / PWM_DUTY_DENOMINATOR;
 
+  primask = __get_PRIMASK();
   __disable_irq();
   update_disable_state = READ_BIT(htim1.Instance->CR1, TIM_CR1_UDIS);
   SET_BIT(htim1.Instance->CR1, TIM_CR1_UDIS);
@@ -83,7 +85,10 @@ void TIM1_PWM_SetFrequency(uint32_t frequency_hz)
   }
 
   current_frequency_hz = frequency_hz;
-  __enable_irq();
+  if (primask == 0U)
+  {
+    __enable_irq();
+  }
 }
 
 static void TIM1_PWM_CalculateTiming(uint32_t frequency_hz,

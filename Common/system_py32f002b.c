@@ -78,11 +78,6 @@ const uint32_t HSIFreqTable[8] = {4000000U, 8000000U, 0U, 0U, 24000000U, 4800000
 const uint32_t HSIFreqTable[8] = {4000000U, 8000000U, 0U, 0U, 24000000U, 0U, 0U, 0U};
 #endif
 
-/* Private function prototypes -----------------------------------------------*/
-#ifndef SWD_DELAY
-static void DelayTime(uint32_t mdelay);
-#endif /* SWD_DELAY */
-
 /**
  * @brief  Clock functions.
  * @param  none
@@ -144,27 +139,5 @@ void SystemInit(void)
   SCB->VTOR = FLASH_BASE | VECT_TAB_OFFSET; /* Vector Table Relocation in Internal FLASH */
 #endif /* VECT_TAB_SRAM */
 
-#ifndef SWD_DELAY
-  /* When the SWD pin is reused for other functions, this function is used to solve the 
-  problem of not being able to update the code. */
-  DelayTime(1000);
-#endif /* SWD_DELAY */
 }
-
-#ifndef SWD_DELAY
-/**
-  * @brief  This function provides delay (in milliseconds) based on CPU cycles method.
-  * @param  mdelay: specifies the delay time length, in milliseconds.
-  * @retval None
-  */
-static void DelayTime(uint32_t mdelay)
-{
-  __IO uint32_t Delay = mdelay * (24000000U / 8U / 1000U);
-  do
-  {
-    __NOP();
-  }
-  while (Delay --);
-}
-#endif /* SWD_DELAY */
 /************************ (C) COPYRIGHT Puya *****END OF FILE******************/

@@ -6,7 +6,7 @@
 #define ADC_FEEDBACK_FILTER_SIZE          9U
 #define ADC_REFERENCE_MV                  5000U
 #define ADC_FAULT_THRESHOLD_MV            565U
-#define ADC_HIGH_VOLTAGE_THRESHOLD_MV     3550U
+#define ADC_HIGH_VOLTAGE_THRESHOLD_MV     3600U
 #define ADC_MAX_RAW_VALUE                 4095U
 #define ADC_CONVERSION_TIMEOUT_MS         2U
 #define ADC_STATE_CONFIRMATION_COUNT       2U
@@ -27,7 +27,6 @@ static ADC_FeedbackStateTypeDef feedback_state;
 static ADC_FeedbackStateTypeDef candidate_state;
 static uint8_t candidate_state_count;
 static uint8_t high_voltage_sample_count;
-static uint8_t high_voltage_event_pending;
 
 static uint16_t ADC_Feedback_ReadRaw(void);
 static uint16_t ADC_Feedback_CalculateMedian(void);
@@ -42,7 +41,7 @@ void ADC_Feedback_Init(void)
   __HAL_RCC_ADC_CLK_ENABLE();
 
   hadc_feedback.Instance = ADC1;
-  hadc_feedback.Init.ClockPrescaler = ADC_CLOCK_ASYNC_HSI_DIV1;
+  hadc_feedback.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV1;
   hadc_feedback.Init.Resolution = ADC_RESOLUTION_12B;
   hadc_feedback.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc_feedback.Init.ScanConvMode = ADC_SCAN_DIRECTION_FORWARD;
@@ -85,7 +84,6 @@ void ADC_Feedback_Init(void)
   candidate_state = ADC_FEEDBACK_STATE_UNKNOWN;
   candidate_state_count = 0U;
   high_voltage_sample_count = 0U;
-  high_voltage_event_pending = 0U;
 }
 
 ADC_FeedbackStateTypeDef ADC_Feedback_Task(uint32_t now_ms)
@@ -128,12 +126,9 @@ uint16_t ADC_Feedback_GetMedianRaw(void)
   return median_raw;
 }
 
-uint8_t ADC_Feedback_TakeHighVoltageEvent(void)
+uint8_t ADC_Feedback_IsHighVoltageConfirmed(void)
 {
-  uint8_t event_pending = high_voltage_event_pending;
-
-  high_voltage_event_pending = 0U;
-  return event_pending;
+  return (high_voltage_sample_count >= ADC_HIGH_VOLTAGE_CONFIRMATION_COUNT) ? 1U : 0U;
 }
 
 static uint16_t ADC_Feedback_ReadRaw(void)
@@ -238,10 +233,6 @@ static void ADC_Feedback_UpdateHighVoltageCount(uint16_t sample)
     if (high_voltage_sample_count < ADC_HIGH_VOLTAGE_CONFIRMATION_COUNT)
     {
       high_voltage_sample_count++;
-      if (high_voltage_sample_count >= ADC_HIGH_VOLTAGE_CONFIRMATION_COUNT)
-      {
-        high_voltage_event_pending = 1U;
-      }
     }
   }
   else
