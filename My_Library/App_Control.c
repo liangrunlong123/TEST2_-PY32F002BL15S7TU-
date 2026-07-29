@@ -130,51 +130,59 @@ static uint32_t APP_Control_CalculateHighFrequency(uint32_t elapsed_ms)
 
 static uint32_t APP_Control_CalculateTriggeredFrequency(uint32_t elapsed_ms)
 {
-  if (elapsed_ms < 40U)
+  if (elapsed_ms < 30U)
   {
     return 2500U;
   }
-  if (elapsed_ms < 80U)
+  if (elapsed_ms < 60U)
   {
-    return 1200U;
+    return 1600U;
+  }
+  if (elapsed_ms < 90U)
+  {
+    return 1000U;
   }
   if (elapsed_ms < 120U)
   {
-    return 600U;
+    return 400U;
   }
-  if (elapsed_ms < 160U)
+  if (elapsed_ms < 180U)
   {
     return 200U;
   }
-  if (elapsed_ms < 200U)
+  if (elapsed_ms < 210U)
   {
-    return 600U;
+    return 400U;
   }
   if (elapsed_ms < 240U)
   {
-    return 1200U;
+    return 1000U;
   }
-  if (elapsed_ms < 280U)
+  if (elapsed_ms < 270U)
+  {
+    return 1600U;
+  }
+  if (elapsed_ms < 300U)
   {
     return 2500U;
   }
-  if (elapsed_ms < 380U)
+  if (elapsed_ms < 400U)
   {
     return 45000U;
   }
-  if (elapsed_ms < 480U)
+  if (elapsed_ms < 500U)
   {
     return 44000U;
   }
-  if (elapsed_ms < 580U)
+  if (elapsed_ms < 600U)
   {
     return 43000U;
   }
-  if (elapsed_ms < 680U)
+  if (elapsed_ms < 700U)
   {
     return 42000U;
   }
-  if (elapsed_ms < 780U)
+  if (elapsed_ms < 800U)
   {
     return 41000U;
   }
