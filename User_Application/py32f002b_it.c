@@ -31,6 +31,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "py32f002b_it.h"
+#include "Timer1.h"
 #include "Timer14.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -57,6 +58,7 @@ void NMI_Handler(void)
   */
 void HardFault_Handler(void)
 {
+  TIM1_PWM_EnterFaultOutput();
   while (1)
   {
   }

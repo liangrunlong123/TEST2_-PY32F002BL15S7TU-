@@ -5,12 +5,10 @@
 
 #define PWM_SOFT_START_FREQ_HZ       75000U
 #define PWM_NORMAL_RUN_FREQ_HZ       40000U
-#define PWM_SOFT_START_STEP_FREQ_HZ   1000U
-#define PWM_SOFT_START_INTERVAL_MS     100U
-#define PWM_LOW_FREQ_REQUEST_START_MS 2050U
-#define PWM_LOW_FREQ_REQUEST_END_MS   2450U
+#define PWM_SOFT_START_STEP_FREQ_HZ    500U
+#define PWM_SOFT_START_INTERVAL_MS      50U
 #define PWM_SOFT_START_DURATION_MS    3500U
-#define PWM_FAULT_FREQ_HZ              5700U
+#define PWM_HIGH_VOLTAGE_BOOST_HZ      5000U
 
 typedef enum
 {
@@ -20,23 +18,23 @@ typedef enum
 
 typedef enum
 {
-  PWM_START_PHASE_HIGH_FREQUENCY = 0,
-  PWM_START_PHASE_TRIGGERED_SEQUENCE
-} PWM_StartPhaseTypeDef;
+  PWM_OUTPUT_PHASE_SOFT_START = 0,
+  PWM_OUTPUT_PHASE_BOOSTED_FIXED
+} PWM_OutputPhaseTypeDef;
 
 static volatile uint32_t app_tick_ms;
 
 static APP_StateTypeDef app_state;
-static PWM_StartPhaseTypeDef pwm_start_phase;
+static PWM_OutputPhaseTypeDef pwm_output_phase;
 static uint32_t normal_start_tick_ms;
-static uint32_t low_frequency_start_tick_ms;
+static uint32_t current_normal_frequency_hz;
+static uint32_t boosted_frequency_hz;
 
 static void APP_Control_EnterNormal(void);
 static void APP_Control_EnterFault(void);
 static void APP_Control_UpdateNormalOutput(uint32_t now_ms, uint8_t high_voltage_confirmed);
 static void APP_Control_ApplyFeedbackState(ADC_FeedbackStateTypeDef feedback_state);
 static uint32_t APP_Control_CalculateHighFrequency(uint32_t elapsed_ms);
-static uint32_t APP_Control_CalculateTriggeredFrequency(uint32_t elapsed_ms);
 
 void APP_Control_Init(void)
 {
@@ -54,9 +52,10 @@ void APP_Control_Task(void)
 {
   uint32_t now_ms = APP_Control_GetTickMs();
   ADC_FeedbackStateTypeDef feedback_state = ADC_Feedback_Task(now_ms);
-  uint8_t high_voltage_confirmed = ADC_Feedback_IsHighVoltageConfirmed();
+  uint8_t high_voltage_confirmed;
 
   APP_Control_ApplyFeedbackState(feedback_state);
+  high_voltage_confirmed = ADC_Feedback_IsHighVoltageConfirmed();
 
   if (app_state == APP_STATE_NORMAL)
   {
@@ -77,41 +76,40 @@ uint32_t APP_Control_GetTickMs(void)
 static void APP_Control_EnterNormal(void)
 {
   app_state = APP_STATE_NORMAL;
-  pwm_start_phase = PWM_START_PHASE_HIGH_FREQUENCY;
+  pwm_output_phase = PWM_OUTPUT_PHASE_SOFT_START;
   normal_start_tick_ms = APP_Control_GetTickMs();
-  low_frequency_start_tick_ms = 0U;
+  current_normal_frequency_hz = PWM_SOFT_START_FREQ_HZ;
+  boosted_frequency_hz = 0U;
+  ADC_Feedback_ResetHighVoltageConfirmation();
   TIM1_PWM_SetFrequency(PWM_SOFT_START_FREQ_HZ);
 }
 
 static void APP_Control_EnterFault(void)
 {
   app_state = APP_STATE_FAULT;
-  TIM1_PWM_SetFrequency(PWM_FAULT_FREQ_HZ);
+  TIM1_PWM_EnterFaultOutput();
 }
 
 static void APP_Control_UpdateNormalOutput(uint32_t now_ms, uint8_t high_voltage_confirmed)
 {
   uint32_t elapsed_ms = now_ms - normal_start_tick_ms;
-  uint32_t triggered_elapsed_ms;
-  uint32_t target_frequency_hz;
+  uint32_t target_frequency_hz = APP_Control_CalculateHighFrequency(elapsed_ms);
 
-  if ((pwm_start_phase == PWM_START_PHASE_HIGH_FREQUENCY) &&
-      (elapsed_ms >= PWM_LOW_FREQ_REQUEST_START_MS) &&
-      (elapsed_ms <= PWM_LOW_FREQ_REQUEST_END_MS) &&
+  if ((pwm_output_phase == PWM_OUTPUT_PHASE_SOFT_START) &&
+      (elapsed_ms < PWM_SOFT_START_DURATION_MS) &&
       (high_voltage_confirmed != 0U))
   {
-    pwm_start_phase = PWM_START_PHASE_TRIGGERED_SEQUENCE;
-    low_frequency_start_tick_ms = now_ms;
+    boosted_frequency_hz = current_normal_frequency_hz + PWM_HIGH_VOLTAGE_BOOST_HZ;
+    pwm_output_phase = PWM_OUTPUT_PHASE_BOOSTED_FIXED;
   }
 
-  if (pwm_start_phase == PWM_START_PHASE_TRIGGERED_SEQUENCE)
+  if (pwm_output_phase == PWM_OUTPUT_PHASE_BOOSTED_FIXED)
   {
-    triggered_elapsed_ms = now_ms - low_frequency_start_tick_ms;
-    target_frequency_hz = APP_Control_CalculateTriggeredFrequency(triggered_elapsed_ms);
+    target_frequency_hz = boosted_frequency_hz;
   }
   else
   {
-    target_frequency_hz = APP_Control_CalculateHighFrequency(elapsed_ms);
+    current_normal_frequency_hz = target_frequency_hz;
   }
 
   TIM1_PWM_SetFrequency(target_frequency_hz);
@@ -127,69 +125,6 @@ static uint32_t APP_Control_CalculateHighFrequency(uint32_t elapsed_ms)
 
   return PWM_NORMAL_RUN_FREQ_HZ;
 }
-
-static uint32_t APP_Control_CalculateTriggeredFrequency(uint32_t elapsed_ms)
-{
-  if (elapsed_ms < 30U)
-  {
-    return 2500U;
-  }
-  if (elapsed_ms < 60U)
-  {
-    return 1600U;
-  }
-  if (elapsed_ms < 90U)
-  {
-    return 1000U;
-  }
-  if (elapsed_ms < 120U)
-  {
-    return 400U;
-  }
-  if (elapsed_ms < 160U)
-  {
-    return 200U;
-  }
-  if (elapsed_ms < 190U)
-  {
-    return 400U;
-  }
-  if (elapsed_ms < 220U)
-  {
-    return 1000U;
-  }
-  if (elapsed_ms < 250U)
-  {
-    return 1600U;
-  }
-  if (elapsed_ms < 280U)
-  {
-    return 2500U;
-  }
-  if (elapsed_ms < 380U)
-  {
-    return 45000U;
-  }
-  if (elapsed_ms < 480U)
-  {
-    return 44000U;
-  }
-  if (elapsed_ms < 580U)
-  {
-    return 43000U;
-  }
-  if (elapsed_ms < 680U)
-  {
-    return 42000U;
-  }
-  if (elapsed_ms < 780U)
-  {
-    return 41000U;
-  }
-
-  return PWM_NORMAL_RUN_FREQ_HZ;
-}
-
 static void APP_Control_ApplyFeedbackState(ADC_FeedbackStateTypeDef feedback_state)
 {
   if ((feedback_state == ADC_FEEDBACK_STATE_FAULT) && (app_state != APP_STATE_FAULT))

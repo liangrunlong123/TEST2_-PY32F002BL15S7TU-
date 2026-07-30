@@ -18,6 +18,7 @@ void ADC_Feedback_Init(void);
 ADC_FeedbackStateTypeDef ADC_Feedback_Task(uint32_t now_ms);
 uint16_t ADC_Feedback_GetMedianRaw(void);
 uint8_t ADC_Feedback_IsHighVoltageConfirmed(void);
+void ADC_Feedback_ResetHighVoltageConfirmation(void);
 
 #ifdef __cplusplus
 }

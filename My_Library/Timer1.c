@@ -4,9 +4,11 @@
 #define TIM1_COUNTER_COUNTS     65536U
 #define PWM_DUTY_NUMERATOR      1U
 #define PWM_DUTY_DENOMINATOR    2U
+#define PWM_FAULT_FREQUENCY_HZ  5700U
 
 static TIM_HandleTypeDef htim1;
 static uint32_t current_frequency_hz;
+static volatile uint8_t pwm_started;
 static void TIM1_PWM_CalculateTiming(uint32_t frequency_hz,
                                     uint32_t *prescaler,
                                     uint32_t *period);
@@ -17,6 +19,7 @@ void TIM1_PWM_Init(uint32_t frequency_hz)
   uint32_t prescaler;
   uint32_t period;
 
+  pwm_started = 0U;
   TIM1_PWM_CalculateTiming(frequency_hz, &prescaler, &period);
 
   __HAL_RCC_TIM1_CLK_ENABLE();
@@ -53,6 +56,7 @@ void TIM1_PWM_Init(uint32_t frequency_hz)
   }
 
   current_frequency_hz = frequency_hz;
+  pwm_started = 1U;
 }
 
 void TIM1_PWM_SetFrequency(uint32_t frequency_hz)
@@ -88,6 +92,14 @@ void TIM1_PWM_SetFrequency(uint32_t frequency_hz)
   if (primask == 0U)
   {
     __enable_irq();
+  }
+}
+
+void TIM1_PWM_EnterFaultOutput(void)
+{
+  if (pwm_started != 0U)
+  {
+    TIM1_PWM_SetFrequency(PWM_FAULT_FREQUENCY_HZ);
   }
 }
 

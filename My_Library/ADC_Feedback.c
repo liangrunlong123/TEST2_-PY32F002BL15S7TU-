@@ -6,7 +6,7 @@
 #define ADC_FEEDBACK_FILTER_SIZE          9U
 #define ADC_REFERENCE_MV                  5000U
 #define ADC_FAULT_THRESHOLD_MV            565U
-#define ADC_HIGH_VOLTAGE_THRESHOLD_MV     3600U
+#define ADC_HIGH_VOLTAGE_THRESHOLD_MV     4900U
 #define ADC_MAX_RAW_VALUE                 4095U
 #define ADC_CONVERSION_TIMEOUT_MS         2U
 #define ADC_STATE_CONFIRMATION_COUNT       2U
@@ -129,6 +129,11 @@ uint16_t ADC_Feedback_GetMedianRaw(void)
 uint8_t ADC_Feedback_IsHighVoltageConfirmed(void)
 {
   return (high_voltage_sample_count >= ADC_HIGH_VOLTAGE_CONFIRMATION_COUNT) ? 1U : 0U;
+}
+
+void ADC_Feedback_ResetHighVoltageConfirmation(void)
+{
+  high_voltage_sample_count = 0U;
 }
 
 static uint16_t ADC_Feedback_ReadRaw(void)

@@ -9,6 +9,7 @@ extern "C" {
 
 void TIM1_PWM_Init(uint32_t frequency_hz);
 void TIM1_PWM_SetFrequency(uint32_t frequency_hz);
+void TIM1_PWM_EnterFaultOutput(void);
 
 #ifdef __cplusplus
 }

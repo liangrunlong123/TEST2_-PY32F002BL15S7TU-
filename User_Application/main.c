@@ -1,6 +1,7 @@
 #include "main.h"
 #include "App_Control.h"
 #include "IO_Init.h"
+#include "Timer1.h"
 
 static void APP_SystemClockConfig(void);
 static void APP_ConfigureOptionBytes(void);
@@ -93,6 +94,7 @@ static void APP_SystemClockConfig(void)
 
 void APP_ErrorHandler(void)
 {
+  TIM1_PWM_EnterFaultOutput();
   __disable_irq();
   while (1)
   {
