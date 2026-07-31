@@ -8,7 +8,7 @@
 #define PWM_SOFT_START_STEP_FREQ_HZ    500U
 #define PWM_SOFT_START_INTERVAL_MS      50U
 #define PWM_SOFT_START_DURATION_MS    3500U
-#define PWM_HIGH_VOLTAGE_BOOST_HZ      5000U
+#define PWM_HIGH_VOLTAGE_DROP_HZ      10000U
 
 typedef enum
 {
@@ -19,7 +19,7 @@ typedef enum
 typedef enum
 {
   PWM_OUTPUT_PHASE_SOFT_START = 0,
-  PWM_OUTPUT_PHASE_BOOSTED_FIXED
+  PWM_OUTPUT_PHASE_LOCKED_FIXED
 } PWM_OutputPhaseTypeDef;
 
 static volatile uint32_t app_tick_ms;
@@ -28,7 +28,7 @@ static APP_StateTypeDef app_state;
 static PWM_OutputPhaseTypeDef pwm_output_phase;
 static uint32_t normal_start_tick_ms;
 static uint32_t current_normal_frequency_hz;
-static uint32_t boosted_frequency_hz;
+static uint32_t locked_frequency_hz;
 
 static void APP_Control_EnterNormal(void);
 static void APP_Control_EnterFault(void);
@@ -79,7 +79,7 @@ static void APP_Control_EnterNormal(void)
   pwm_output_phase = PWM_OUTPUT_PHASE_SOFT_START;
   normal_start_tick_ms = APP_Control_GetTickMs();
   current_normal_frequency_hz = PWM_SOFT_START_FREQ_HZ;
-  boosted_frequency_hz = 0U;
+  locked_frequency_hz = 0U;
   ADC_Feedback_ResetHighVoltageConfirmation();
   TIM1_PWM_SetFrequency(PWM_SOFT_START_FREQ_HZ);
 }
@@ -99,13 +99,13 @@ static void APP_Control_UpdateNormalOutput(uint32_t now_ms, uint8_t high_voltage
       (elapsed_ms < PWM_SOFT_START_DURATION_MS) &&
       (high_voltage_confirmed != 0U))
   {
-    boosted_frequency_hz = current_normal_frequency_hz + PWM_HIGH_VOLTAGE_BOOST_HZ;
-    pwm_output_phase = PWM_OUTPUT_PHASE_BOOSTED_FIXED;
+    locked_frequency_hz = current_normal_frequency_hz - PWM_HIGH_VOLTAGE_DROP_HZ;
+    pwm_output_phase = PWM_OUTPUT_PHASE_LOCKED_FIXED;
   }
 
-  if (pwm_output_phase == PWM_OUTPUT_PHASE_BOOSTED_FIXED)
+  if (pwm_output_phase == PWM_OUTPUT_PHASE_LOCKED_FIXED)
   {
-    target_frequency_hz = boosted_frequency_hz;
+    target_frequency_hz = locked_frequency_hz;
   }
   else
   {
